@@ -21,16 +21,11 @@
 # Directories
 .settings/
 bin/
-Misc/
 
 # Eclipse
 .classpath
 .project
 *.prefs
-
-# OSP
-*.osp
-*.rdl
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
