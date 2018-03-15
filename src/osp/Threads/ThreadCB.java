@@ -12,6 +12,8 @@ import osp.Memory.*;
 import osp.Resources.*;
 
 public class ThreadCB extends IflThreadCB {
+	static Queue readyQueue = new Queue();
+	
 	public ThreadCB() {
 		super();
 	}
@@ -44,8 +46,6 @@ public class ThreadCB extends IflThreadCB {
 		@OSPProject Threads
 	*/
 	static public ThreadCB do_create(TaskCB task) {
-		// use setPriority() for TaskCB		if we use priority scheduling
-		// use getPriority() for ThreadCB	if we use priority scheduling
 		if (task.getThreadCount() >= MaxThreadsPerTask)
 			return null;
 		ThreadCB thread = new ThreadCB();
@@ -55,7 +55,7 @@ public class ThreadCB extends IflThreadCB {
 		}
 		thread.setTask(task);
 		thread.setStatus(ThreadReady);
-		// add to ready queue
+		readyQueue.enqueue(thread);
 		return thread;
 	}
 
@@ -167,5 +167,48 @@ public class ThreadCB extends IflThreadCB {
 	*/
 	public static void atWarning() {
 		
+	}	
+	
+	public static class Queue {
+		ThreadCB[] q;
+		int front, rear;
+		
+		public Queue() {
+			q = new ThreadCB[32];
+		}
+		
+		public ThreadCB dequeue() {
+			if(!isEmpty()) {
+				ThreadCB temp = q[front];
+				front = (front + 1) % q.length;
+				return temp;
+			}
+			return null;
+		}
+		
+		public boolean enqueue(ThreadCB thread) {
+			if(!isFull()) {
+				q[rear] = thread;
+				rear = (rear + 1) % q.length;
+				return true;
+			}
+			return false;
+		}
+		
+		public boolean isEmpty() {
+			return front == rear;
+		}
+		
+		public boolean isFull() {
+			if((rear + 1) % q.length == front)
+				return true;
+			return false;
+		}
+		
+		public ThreadCB peak() {
+			if(!isEmpty())
+				return q[front];
+			return null;
+		}
 	}
 }
