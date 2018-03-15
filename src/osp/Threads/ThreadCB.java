@@ -1,4 +1,5 @@
 package osp.Threads;
+
 import java.util.Vector;
 import java.util.Enumeration;
 import osp.Utilities.*;
@@ -10,12 +11,6 @@ import osp.Devices.*;
 import osp.Memory.*;
 import osp.Resources.*;
 
-/**
-   This class is responsible for actions related to threads, including
-   creating, killing, dispatching, resuming, and suspending threads.
-
-   @OSPProject Threads
-*/
 public class ThreadCB extends IflThreadCB {
 	public ThreadCB() {
 		super();
@@ -88,6 +83,9 @@ public class ThreadCB extends IflThreadCB {
 		ResourceCB.giveupResources(this);
 		do_dispatch();
 		this.setStatus(ThreadKill);
+		if (this.getTask().getThreadCount() == 0)
+			this.getTask().kill();
+		this.setStatus(ThreadRunning);
 	}
 
     /** Suspends the thread that is currently on the processor on the 
@@ -107,7 +105,11 @@ public class ThreadCB extends IflThreadCB {
         @OSPProject Threads
     */
 	public void do_suspend(Event event) {
-		
+		if (printableStatus(this.getStatus()).equals("ThreadRunning"))
+			this.setStatus(ThreadWaiting);
+		else if (printableStatus(this.getStatus()).equals("ThreadWaiting"))
+			this.setStatus(ThreadWaiting+1);
+		do_dispatch();
 	}
 
     /** Resumes the thread.
@@ -120,7 +122,11 @@ public class ThreadCB extends IflThreadCB {
 	@OSPProject Threads
     */
 	public void do_resume() {
-		
+		if (printableStatus(this.getStatus()).equals("ThreadRunning"))
+			; // add to ready queue
+		else if (printableStatus(this.getStatus()).equals("ThreadWaiting"))
+			this.setStatus(ThreadWaiting-1);
+		do_dispatch();
 	}
 
     /** 
@@ -162,13 +168,4 @@ public class ThreadCB extends IflThreadCB {
 	public static void atWarning() {
 		
 	}
-
-    /*
-       Feel free to add methods/fields to improve the readability of your code
-    */
-
 }
-
-/*
-      Feel free to add local classes to improve the readability of your code
-*/
