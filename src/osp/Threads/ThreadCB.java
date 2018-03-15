@@ -143,7 +143,16 @@ public class ThreadCB extends IflThreadCB {
         @OSPProject Threads
     */
 	public static int do_dispatch() {
+		if(MMU.getPTBR() != null)
 		return 0;
+		//if(Queue.isEmpty())
+		//return 0;
+		//Dequeue from ready queue
+		ThreadCB t = null;
+		t.setStatus(ThreadRunning);
+		MMU.setPTBR(t.getTask().getPageTable());
+		t.getTask().setCurrentThread(t);
+		return 1;
 	}
 
     /**
@@ -156,6 +165,7 @@ public class ThreadCB extends IflThreadCB {
     */
 	public static void atError() {
 		
+	
 	}
 
     /** Called by OSP after printing a warning message. The student
