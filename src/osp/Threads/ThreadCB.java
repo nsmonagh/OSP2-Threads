@@ -145,15 +145,26 @@ public class ThreadCB extends IflThreadCB {
 	*/
 	public static int do_dispatch() {
 		if(MMU.getPTBR() != null)
-			return 0;
+			return FAILURE;
 		if(readyQueue.isEmpty())
-			return 0;
+			return FAILURE;
 		//Dequeue from ready queue
 		ThreadCB t = readyQueue.remove(0);
-		t.setStatus(ThreadRunning);
-		MMU.setPTBR(t.getTask().getPageTable());
-		t.getTask().setCurrentThread(t);
-		return 1;
+		//context switch
+		contextSwitch(t);
+		return SUCCESS;
+	}
+	
+	private static void contextSwitch(ThreadCB x) {
+		//Take CPU away from current thread. We are not using quantums so the status must be ThreadWaiting.
+		TaskCB temp = MMU.getPTBR().getTask();
+		temp.getCurrentThread().setStatus(ThreadWaiting);
+		MMU.setPTBR(null);
+		temp.setCurrentThread(null);
+		//Give CPU to next thread
+		x.setStatus(ThreadRunning);
+		MMU.setPTBR(x.getTask().getPageTable());
+		x.getTask().setCurrentThread(x);
 	}
 
 	/**
