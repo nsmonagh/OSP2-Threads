@@ -47,7 +47,47 @@ public class ThreadCB extends IflThreadCB {
 		@OSPProject Threads
 	*/
 	static public ThreadCB do_create(TaskCB task) {
-		if (task.getThreadCount() >= MaxThreadsPerTask)
+        ThreadCB thread = null;
+        
+        if(task == null){
+        	ThreadCB.dispatch();
+        	return null;
+
+        }
+
+        
+
+        if(task.getThreadCount() >= MaxThreadsPerTask){
+
+            ThreadCB.dispatch();
+
+            return null;
+        }
+
+        thread = new ThreadCB();                            
+
+        thread.setPriority(task.getPriority());             
+
+        thread.setStatus(ThreadReady);                     
+
+        thread.setTask(task);                               
+
+        if(task.addThread(thread) == 0){
+
+            ThreadCB.dispatch();
+
+            return null;
+
+        }
+
+        readyQueue.add(thread);                        
+
+        ThreadCB.dispatch();                               
+
+        return thread;
+
+        //Noah's attempt
+		/*if (task.getThreadCount() >= MaxThreadsPerTask)
 			return null;
 		ThreadCB thread = new ThreadCB();
 		int result = task.addThread(thread);
@@ -58,6 +98,7 @@ public class ThreadCB extends IflThreadCB {
 		thread.setStatus(ThreadReady);
 		readyQueue.add(thread);
 		return thread;
+		*/
 	}
 
 	/** 
@@ -144,13 +185,18 @@ public class ThreadCB extends IflThreadCB {
 		@OSPProject Threads
 	*/
 	public static int do_dispatch() {
-		if(MMU.getPTBR() != null)
-			return FAILURE;
 		if(readyQueue.isEmpty())
 			return FAILURE;
-		//Dequeue from ready queue
+		if(MMU.getPTBR() == null) { //No running thread, no need for context switch
+			ThreadCB x = readyQueue.remove(0);
+			//Give CPU to thread
+			x.setStatus(ThreadRunning);
+			MMU.setPTBR(x.getTask().getPageTable());
+			x.getTask().setCurrentThread(x);
+			return SUCCESS;
+		}
+		//Otherwise. dequeue from ready queue and perform context switch
 		ThreadCB t = readyQueue.remove(0);
-		//context switch
 		contextSwitch(t);
 		return SUCCESS;
 	}
