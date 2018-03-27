@@ -1,6 +1,7 @@
 package osp.Threads;
 
 import java.util.Vector;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import osp.Utilities.*;
 import osp.IFLModules.*;
@@ -12,7 +13,7 @@ import osp.Memory.*;
 import osp.Resources.*;
 
 public class ThreadCB extends IflThreadCB {
-	static Queue readyQueue = new Queue();
+	static ArrayList<ThreadCB> readyQueue = new ArrayList<ThreadCB>();
 	
 	public ThreadCB() {
 		super();
@@ -55,7 +56,7 @@ public class ThreadCB extends IflThreadCB {
 		}
 		thread.setTask(task);
 		thread.setStatus(ThreadReady);
-		readyQueue.enqueue(thread);
+		readyQueue.add(thread);
 		return thread;
 	}
 
@@ -74,7 +75,7 @@ public class ThreadCB extends IflThreadCB {
 	*/
 	public void do_kill() {
 		if (printableStatus(this.getStatus()).equals("ThreadReady"))
-			; // remove from ready queue
+			readyQueue.remove(this);
 		else if (printableStatus(this.getStatus()).equals("ThreadRunning"))
 			; // remove from controlling the CPU
 		for (int i = 0; i < Device.getTableSize(); i++) {
@@ -123,7 +124,7 @@ public class ThreadCB extends IflThreadCB {
 	*/
 	public void do_resume() {
 		if (printableStatus(this.getStatus()).equals("ThreadRunning"))
-			; // add to ready queue
+			readyQueue.add(this);
 		else if (printableStatus(this.getStatus()).equals("ThreadWaiting"))
 			this.setStatus(ThreadWaiting-1);
 		do_dispatch();
@@ -163,8 +164,7 @@ public class ThreadCB extends IflThreadCB {
 
 		@OSPProject Threads
 	*/
-	public static void atError() {
-		
+	public static void atError() {	
 	
 	}
 
@@ -177,48 +177,5 @@ public class ThreadCB extends IflThreadCB {
 	*/
 	public static void atWarning() {
 		
-	}	
-	
-	public static class Queue {
-		ThreadCB[] q;
-		int front, rear;
-		
-		public Queue() {
-			q = new ThreadCB[32];
-		}
-		
-		public ThreadCB dequeue() {
-			if(!isEmpty()) {
-				ThreadCB temp = q[front];
-				front = (front + 1) % q.length;
-				return temp;
-			}
-			return null;
-		}
-		
-		public boolean enqueue(ThreadCB thread) {
-			if(!isFull()) {
-				q[rear] = thread;
-				rear = (rear + 1) % q.length;
-				return true;
-			}
-			return false;
-		}
-		
-		public boolean isEmpty() {
-			return front == rear;
-		}
-		
-		public boolean isFull() {
-			if((rear + 1) % q.length == front)
-				return true;
-			return false;
-		}
-		
-		public ThreadCB peak() {
-			if(!isEmpty())
-				return q[front];
-			return null;
-		}
 	}
 }
