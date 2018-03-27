@@ -144,11 +144,11 @@ public class ThreadCB extends IflThreadCB {
 	*/
 	public static int do_dispatch() {
 		if(MMU.getPTBR() != null)
-		return 0;
-		//if(Queue.isEmpty())
-		//return 0;
+			return 0;
+		if(readyQueue.isEmpty())
+			return 0;
 		//Dequeue from ready queue
-		ThreadCB t = null;
+		ThreadCB t = readyQueue.dequeue();
 		t.setStatus(ThreadRunning);
 		MMU.setPTBR(t.getTask().getPageTable());
 		t.getTask().setCurrentThread(t);
