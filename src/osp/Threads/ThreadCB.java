@@ -47,21 +47,12 @@ public class ThreadCB extends IflThreadCB {
 		@OSPProject Threads
 	*/
 	static public ThreadCB do_create(TaskCB task) {
+		
         ThreadCB thread = null;
         
-        if(task == null){
+        if(task == null||(task.getThreadCount() >= MaxThreadsPerTask)){
         	ThreadCB.dispatch();
         	return null;
-
-        }
-
-        
-
-        if(task.getThreadCount() >= MaxThreadsPerTask){
-
-            ThreadCB.dispatch();
-
-            return null;
         }
 
         thread = new ThreadCB();                            
@@ -86,7 +77,7 @@ public class ThreadCB extends IflThreadCB {
 
         return thread;
 
-        //Noah's attempt
+        //old attempt
 		/*if (task.getThreadCount() >= MaxThreadsPerTask)
 			return null;
 		ThreadCB thread = new ThreadCB();
@@ -147,8 +138,12 @@ public class ThreadCB extends IflThreadCB {
 		@OSPProject Threads
 	*/
 	public void do_suspend(Event event) {
-		if (printableStatus(this.getStatus()).equals("ThreadRunning"))
-			this.setStatus(ThreadWaiting);
+		if (printableStatus(this.getStatus()).equals("ThreadRunning")) {
+			TaskCB temp = MMU.getPTBR().getTask();
+			temp.getCurrentThread().setStatus(ThreadWaiting);
+			MMU.setPTBR(null);
+			temp.setCurrentThread(null);
+		}
 		else if (printableStatus(this.getStatus()).equals("ThreadWaiting"))
 			this.setStatus(ThreadWaiting+1);
 		do_dispatch();
