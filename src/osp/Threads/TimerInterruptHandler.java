@@ -18,6 +18,6 @@ public class TimerInterruptHandler extends IflTimerInterruptHandler {
 		@OSPProject Threads
 	*/
 	public void do_handleInterrupt() {
-		ThreadCB.do_dispatch();
+		ThreadCB.dispatch();
 	}
 }
