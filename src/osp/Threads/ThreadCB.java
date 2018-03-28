@@ -197,20 +197,16 @@ public class ThreadCB extends IflThreadCB {
 		}
 		//Otherwise. dequeue from ready queue and perform context switch
 		ThreadCB t = readyQueue.remove(0);
-		contextSwitch(t);
-		return SUCCESS;
-	}
-	
-	private static void contextSwitch(ThreadCB x) {
 		//Take CPU away from current thread. We are not using quantums so the status must be ThreadWaiting.
 		TaskCB temp = MMU.getPTBR().getTask();
 		temp.getCurrentThread().setStatus(ThreadWaiting);
 		MMU.setPTBR(null);
 		temp.setCurrentThread(null);
 		//Give CPU to next thread
-		x.setStatus(ThreadRunning);
-		MMU.setPTBR(x.getTask().getPageTable());
-		x.getTask().setCurrentThread(x);
+		t.setStatus(ThreadRunning);
+		MMU.setPTBR(t.getTask().getPageTable());
+		t.getTask().setCurrentThread(t);
+		return SUCCESS;
 	}
 
 	/**
