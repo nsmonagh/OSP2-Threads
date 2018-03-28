@@ -54,27 +54,19 @@ public class ThreadCB extends IflThreadCB {
         	ThreadCB.dispatch();
         	return null;
         }
-
+        
         thread = new ThreadCB();                            
-
         thread.setPriority(task.getPriority());             
-
         thread.setStatus(ThreadReady);                     
-
-        thread.setTask(task);                               
-
+        thread.setTask(task); 
+        
         if(task.addThread(thread) == 0){
-
             ThreadCB.dispatch();
-
             return null;
-
         }
-
+        
         readyQueue.add(thread);                        
-
         ThreadCB.dispatch();                               
-
         return thread;
 
         //old attempt
