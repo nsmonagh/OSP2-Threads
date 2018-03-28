@@ -134,7 +134,6 @@ public class ThreadCB extends IflThreadCB {
 		@OSPProject Threads
 	*/
 	public void do_suspend(Event event) {
-<<<<<<< HEAD
 		int status = getStatus();
 		if (status == ThreadRunning) {
 			setStatus(ThreadWaiting);
@@ -145,17 +144,6 @@ public class ThreadCB extends IflThreadCB {
 			setStatus(++status);
 		event.addThread(this);
 		dispatch();
-=======
-		if (printableStatus(this.getStatus()).equals("ThreadRunning")) {
-			TaskCB temp = MMU.getPTBR().getTask();
-			temp.getCurrentThread().setStatus(ThreadWaiting);
-			MMU.setPTBR(null);
-			temp.setCurrentThread(null);
-		}
-		else if (printableStatus(this.getStatus()).equals("ThreadWaiting"))
-			this.setStatus(ThreadWaiting+1);
-		do_dispatch();
->>>>>>> 6c6481bd692e1fb1d536e8a42948d405037572fe
 	}
 
 	/** Resumes the thread.
