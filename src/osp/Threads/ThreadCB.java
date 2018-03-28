@@ -1,32 +1,23 @@
 package osp.Threads;
 
-import java.util.Vector;
 import java.util.ArrayList;
-import java.util.Enumeration;
-import osp.Utilities.*;
-import osp.IFLModules.*;
-import osp.Tasks.*;
-import osp.EventEngine.*;
-import osp.Hardware.*;
-import osp.Devices.*;
-import osp.Memory.*;
-import osp.Resources.*;
+
+import osp.Devices.Device;
+import osp.IFLModules.Event;
+import osp.IFLModules.IflThreadCB;
+import osp.Memory.MMU;
+import osp.Resources.ResourceCB;
+import osp.Tasks.TaskCB;
 
 public class ThreadCB extends IflThreadCB {
-	static ArrayList<ThreadCB> readyQueue = new ArrayList<ThreadCB>();
+	static ArrayList<ThreadCB> readyQueue;
 	
 	public ThreadCB() {
 		super();
 	}
 
-	/**
-		This method will be called once at the beginning of the
-		simulation. The student can set up static variables here.
-		
-		@OSPProject Threads
-	*/
 	public static void init() {
-		
+		 readyQueue = new ArrayList<ThreadCB>();
 	}
 
 	/** 
@@ -100,11 +91,12 @@ public class ThreadCB extends IflThreadCB {
 	*/
 	public void do_kill() {
 		int status = getStatus();
+		TaskCB task = getTask();
 		if (status == ThreadReady)
 			readyQueue.remove(this);
 		else if (status == ThreadRunning) {
 			MMU.setPTBR(null);
-			getTask().setCurrentThread(null);
+			task.setCurrentThread(null);
 		}
 		for (int i = 0; i < Device.getTableSize(); i++) {
 			Device.get(i).cancelPendingIO(this);
@@ -112,8 +104,8 @@ public class ThreadCB extends IflThreadCB {
 		ResourceCB.giveupResources(this);
 		dispatch();
 		this.setStatus(ThreadKill);
-		if (this.getTask().getThreadCount() == 0)
-			this.getTask().kill();
+		if (task.getThreadCount() == 0)
+			task.kill();
 		this.setStatus(ThreadRunning);
 	}
 
@@ -204,26 +196,6 @@ public class ThreadCB extends IflThreadCB {
 		return SUCCESS;
 	}
 
-	/**
-		Called by OSP after printing an error message. The student can
-		insert code here to print various tables and data structures in
-		their state just after the error happened.  The body can be
-		left empty, if this feature is not used.
-
-		@OSPProject Threads
-	*/
-	public static void atError() {	
-		
-	}
-
-	/** Called by OSP after printing a warning message. The student
-		can insert code here to print various tables and data
-		structures in their state just after the warning happened.
-		The body can be left empty, if this feature is not used.
-
-		@OSPProject Threads
-	*/
-	public static void atWarning() {
-		
-	}
+	public static void atError() {}
+	public static void atWarning() {}
 }
