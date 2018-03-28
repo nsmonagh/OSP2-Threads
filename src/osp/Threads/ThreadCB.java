@@ -97,6 +97,7 @@ public class ThreadCB extends IflThreadCB {
 		thread.setTask(task);
 		thread.setStatus(ThreadReady);
 		readyQueue.add(thread);
+		ThreadCB.dispatch();
 		return thread;
 		*/
 	}
@@ -115,15 +116,18 @@ public class ThreadCB extends IflThreadCB {
 	@OSPProject Threads
 	*/
 	public void do_kill() {
-		if (printableStatus(this.getStatus()).equals("ThreadReady"))
+		int status = getStatus();
+		if (status == ThreadReady)
 			readyQueue.remove(this);
-		else if (printableStatus(this.getStatus()).equals("ThreadRunning"))
-			; // remove from controlling the CPU
+		else if (status == ThreadRunning) {
+			MMU.setPTBR(null);
+			getTask().setCurrentThread(null);
+		}
 		for (int i = 0; i < Device.getTableSize(); i++) {
 			Device.get(i).cancelPendingIO(this);
 		}
 		ResourceCB.giveupResources(this);
-		do_dispatch();
+		dispatch();
 		this.setStatus(ThreadKill);
 		if (this.getTask().getThreadCount() == 0)
 			this.getTask().kill();
@@ -147,11 +151,16 @@ public class ThreadCB extends IflThreadCB {
 		@OSPProject Threads
 	*/
 	public void do_suspend(Event event) {
-		if (printableStatus(this.getStatus()).equals("ThreadRunning"))
-			this.setStatus(ThreadWaiting);
-		else if (printableStatus(this.getStatus()).equals("ThreadWaiting"))
-			this.setStatus(ThreadWaiting+1);
-		do_dispatch();
+		int status = getStatus();
+		if (status == ThreadRunning) {
+			setStatus(ThreadWaiting);
+			MMU.setPTBR(null);
+			getTask().setCurrentThread(null);
+		}
+		else if (status >= ThreadWaiting)
+			setStatus(++status);
+		event.addThread(this);
+		dispatch();
 	}
 
 	/** Resumes the thread.
@@ -164,11 +173,14 @@ public class ThreadCB extends IflThreadCB {
 	@OSPProject Threads
 	*/
 	public void do_resume() {
-		if (printableStatus(this.getStatus()).equals("ThreadRunning"))
+		int status = getStatus();
+		if (status == ThreadWaiting) {
+			setStatus(ThreadReady);
 			readyQueue.add(this);
-		else if (printableStatus(this.getStatus()).equals("ThreadWaiting"))
-			this.setStatus(ThreadWaiting-1);
-		do_dispatch();
+		}
+		else
+			setStatus(--status);
+		dispatch();
 	}
 
 	/** 
@@ -218,7 +230,7 @@ public class ThreadCB extends IflThreadCB {
 		@OSPProject Threads
 	*/
 	public static void atError() {	
-	
+		
 	}
 
 	/** Called by OSP after printing a warning message. The student
