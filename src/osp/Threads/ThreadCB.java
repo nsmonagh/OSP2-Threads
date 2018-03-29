@@ -148,13 +148,13 @@ public class ThreadCB extends IflThreadCB {
 	@OSPProject Threads
 	*/
 	public void do_resume() {
-		int status = getStatus();
-		if (status == ThreadWaiting) {
+		if (getStatus() == ThreadWaiting) {
 			setStatus(ThreadReady);
 			readyQueue.add(this);
 		}
-		else
-			setStatus(--status);
+		else if(getStatus() > ThreadWaiting)
+			setStatus(getStatus()-1);
+		else return;
 		dispatch();
 	}
 
@@ -174,26 +174,27 @@ public class ThreadCB extends IflThreadCB {
 	public static int do_dispatch() {
 		if(readyQueue.isEmpty())
 			return FAILURE;
+		ThreadCB x = readyQueue.remove(0);
 		if(MMU.getPTBR() == null) { //No running thread, no need for context switch
-			ThreadCB x = readyQueue.remove(0);
 			//Give CPU to thread
 			x.setStatus(ThreadRunning);
 			MMU.setPTBR(x.getTask().getPageTable());
 			x.getTask().setCurrentThread(x);
 			return SUCCESS;
 		}
-		//Otherwise. dequeue from ready queue and perform context switch
-		ThreadCB t = readyQueue.remove(0);
+		else {
+		//Otherwise, dequeue from ready queue and perform context switch
 		//Take CPU away from current thread. We are not using quantums so the status must be ThreadWaiting.
 		TaskCB temp = MMU.getPTBR().getTask();
 		temp.getCurrentThread().setStatus(ThreadWaiting);
 		MMU.setPTBR(null);
 		temp.setCurrentThread(null);
 		//Give CPU to next thread
-		t.setStatus(ThreadRunning);
-		MMU.setPTBR(t.getTask().getPageTable());
-		t.getTask().setCurrentThread(t);
+		x.setStatus(ThreadRunning);
+		MMU.setPTBR(x.getTask().getPageTable());
+		x.getTask().setCurrentThread(x);
 		return SUCCESS;
+		}
 	}
 
 	public static void atError() {}
