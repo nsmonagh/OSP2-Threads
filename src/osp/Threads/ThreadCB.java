@@ -1,112 +1,63 @@
 package osp.Threads;
 
-import java.util.ArrayList;
-
 import osp.Devices.Device;
 import osp.IFLModules.Event;
 import osp.IFLModules.IflThreadCB;
 import osp.Memory.MMU;
 import osp.Resources.ResourceCB;
 import osp.Tasks.TaskCB;
+import osp.Utilities.GenericList;
 
 public class ThreadCB extends IflThreadCB {
-	static ArrayList<ThreadCB> readyQueue;
+	static GenericList readyQueue;
 	
 	public ThreadCB() {
 		super();
 	}
 
 	public static void init() {
-		 readyQueue = new ArrayList<ThreadCB>();
+		 readyQueue = new GenericList();
 	}
 
-	/** 
-		Sets up a new thread and adds it to the given task. 
-		The method must set the ready status 
-		and attempt to add thread to task. If the latter fails 
-		because there are already too many threads in this task, 
-		so does this method, otherwise, the thread is appended 
-		to the ready queue and dispatch() is called.
-
-	The priority of the thread can be set using the getPriority/setPriority
-	methods. However, OSP itself doesn't care what the actual value of
-	the priority is. These methods are just provided in case priority
-	scheduling is required.
-
-	@return thread or null
-
-		@OSPProject Threads
-	*/
 	static public ThreadCB do_create(TaskCB task) {
-		
-        ThreadCB thread = null;
-        
-        if(task == null||(task.getThreadCount() >= MaxThreadsPerTask)){
-        	ThreadCB.dispatch();
-        	return null;
-        }
-        
-        thread = new ThreadCB();                            
-        thread.setPriority(task.getPriority());             
-        thread.setStatus(ThreadReady);                     
-        thread.setTask(task); 
-        
-        if(task.addThread(thread) == 0){
-            ThreadCB.dispatch();
-            return null;
-        }
-        
-        readyQueue.add(thread);                        
-        ThreadCB.dispatch();                               
-        return thread;
-
-        //old attempt
-		/*if (task.getThreadCount() >= MaxThreadsPerTask)
-			return null;
-		ThreadCB thread = new ThreadCB();
-		int result = task.addThread(thread);
-		if (printableRetCode(result).equals("FAILURE")) {
+		if (task == null || (task.getThreadCount() >= MaxThreadsPerTask)) {
+			ThreadCB.dispatch();
 			return null;
 		}
-		thread.setTask(task);
+		ThreadCB thread = new ThreadCB();
+		thread.setPriority(task.getPriority());
 		thread.setStatus(ThreadReady);
-		readyQueue.add(thread);
+		thread.setTask(task);
+		if (task.addThread(thread) == FAILURE) {
+			ThreadCB.dispatch();
+			return null;
+		}
+		readyQueue.append(thread);
 		ThreadCB.dispatch();
 		return thread;
-		*/
 	}
 
-	/** 
-	Kills the specified thread. 
-
-	The status must be set to ThreadKill, the thread must be
-	removed from the task's list of threads and its pending IORBs
-	must be purged from all device queues.
-
-	If some thread was on the ready queue, it must removed, if the 
-	thread was running, the processor becomes idle, and dispatch() 
-	must be called to resume a waiting thread.
-	
-	@OSPProject Threads
-	*/
 	public void do_kill() {
 		int status = getStatus();
 		TaskCB task = getTask();
 		if (status == ThreadReady)
 			readyQueue.remove(this);
 		else if (status == ThreadRunning) {
-			MMU.setPTBR(null);
-			task.setCurrentThread(null);
+			try {
+				if (MMU.getPTBR().getTask().getCurrentThread() == this) {
+					MMU.setPTBR(null);
+					task.setCurrentThread(null);
+				}
+			} catch (NullPointerException e) {}
 		}
-		for (int i = 0; i < Device.getTableSize(); i++) {
+		getTask().removeThread(this);
+		setStatus(ThreadKill);
+		for (int i = 0; i < Device.getTableSize(); i++)
 			Device.get(i).cancelPendingIO(this);
-		}
 		ResourceCB.giveupResources(this);
 		dispatch();
-		this.setStatus(ThreadKill);
 		if (task.getThreadCount() == 0)
 			task.kill();
-		this.setStatus(ThreadRunning);
 	}
 
 	/** Suspends the thread that is currently on the processor on the 
@@ -128,9 +79,13 @@ public class ThreadCB extends IflThreadCB {
 	public void do_suspend(Event event) {
 		int status = getStatus();
 		if (status == ThreadRunning) {
-			setStatus(ThreadWaiting);
-			MMU.setPTBR(null);
-			getTask().setCurrentThread(null);
+			try {
+				if (MMU.getPTBR().getTask().getCurrentThread() == this) {
+					MMU.setPTBR(null);
+					getTask().setCurrentThread(null);
+					setStatus(ThreadWaiting);
+				}
+			} catch (NullPointerException e) {}
 		}
 		else if (status >= ThreadWaiting)
 			setStatus(++status);
@@ -151,7 +106,7 @@ public class ThreadCB extends IflThreadCB {
 		int status = getStatus();
 		if (status == ThreadWaiting) {
 			setStatus(ThreadReady);
-			readyQueue.add(this);
+			readyQueue.append(this);
 		}
 		else
 			setStatus(--status);
@@ -175,25 +130,27 @@ public class ThreadCB extends IflThreadCB {
 		if(readyQueue.isEmpty())
 			return FAILURE;
 		if(MMU.getPTBR() == null) { //No running thread, no need for context switch
-			ThreadCB x = readyQueue.remove(0);
+			ThreadCB x = (ThreadCB) readyQueue.removeHead();
 			//Give CPU to thread
 			x.setStatus(ThreadRunning);
 			MMU.setPTBR(x.getTask().getPageTable());
 			x.getTask().setCurrentThread(x);
 			return SUCCESS;
 		}
-		//Otherwise. dequeue from ready queue and perform context switch
-		ThreadCB t = readyQueue.remove(0);
-		//Take CPU away from current thread. We are not using quantums so the status must be ThreadWaiting.
-		TaskCB temp = MMU.getPTBR().getTask();
-		temp.getCurrentThread().setStatus(ThreadWaiting);
-		MMU.setPTBR(null);
-		temp.setCurrentThread(null);
-		//Give CPU to next thread
-		t.setStatus(ThreadRunning);
-		MMU.setPTBR(t.getTask().getPageTable());
-		t.getTask().setCurrentThread(t);
-		return SUCCESS;
+		else {
+			//Otherwise. dequeue from ready queue and perform context switch
+			ThreadCB t = (ThreadCB) readyQueue.removeHead();
+			//Take CPU away from current thread. We are not using quantums so the status must be ThreadWaiting.
+			TaskCB temp = MMU.getPTBR().getTask();
+			temp.getCurrentThread().setStatus(ThreadWaiting);
+			MMU.setPTBR(null);
+			temp.setCurrentThread(null);
+			//Give CPU to next thread
+			t.setStatus(ThreadRunning);
+			MMU.setPTBR(t.getTask().getPageTable());
+			t.getTask().setCurrentThread(t);
+			return SUCCESS;
+		}
 	}
 
 	public static void atError() {}
