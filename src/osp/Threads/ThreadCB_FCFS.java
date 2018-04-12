@@ -1,7 +1,6 @@
 package osp.Threads;
 
 import osp.Devices.Device;
-import osp.Hardware.HClock;
 import osp.IFLModules.Event;
 import osp.IFLModules.IflThreadCB;
 import osp.Memory.MMU;
@@ -10,26 +9,14 @@ import osp.Tasks.TaskCB;
 import osp.Utilities.GenericList;
 
 public class ThreadCB extends IflThreadCB {
-	static GenericList highPriorityQueue;
-	static GenericList lowerPriorityQueue;
-	
-	static int lastCpuBurst;
-	static int estimatedBurstTime;
-	
-	static long lastDispatch;
+	static GenericList readyQueue;
 	
 	public ThreadCB() {
 		super();
 	}
 
 	public static void init() {
-		highPriorityQueue = new GenericList();
-		lowerPriorityQueue = new GenericList();
-		
-		lastCpuBurst = -1;
-		estimatedBurstTime = 150;
-		
-		lastDispatch = -1;
+		 readyQueue = new GenericList();
 	}
 
 	static public ThreadCB do_create(TaskCB task) {
@@ -45,7 +32,7 @@ public class ThreadCB extends IflThreadCB {
 			ThreadCB.dispatch();
 			return null;
 		}
-		highPriorityQueue.append(thread);
+		readyQueue.append(thread);
 		ThreadCB.dispatch();
 		return thread;
 	}
@@ -54,7 +41,7 @@ public class ThreadCB extends IflThreadCB {
 		int status = getStatus();
 		TaskCB task = getTask();
 		if (status == ThreadReady)
-			highPriorityQueue.remove(this);
+			readyQueue.remove(this);
 		else if (status == ThreadRunning) {
 			try {
 				if (MMU.getPTBR().getTask().getCurrentThread() == this) {
@@ -94,7 +81,7 @@ public class ThreadCB extends IflThreadCB {
 		int status = getStatus();
 		if (status == ThreadWaiting) {
 			setStatus(ThreadReady);
-			highPriorityQueue.append(this);
+			readyQueue.append(this);
 		}
 		else if(status > ThreadWaiting)
 			setStatus(--status);
@@ -102,7 +89,6 @@ public class ThreadCB extends IflThreadCB {
 		dispatch();
 	}
 
-	@SuppressWarnings("static-access")
 	public static int do_dispatch() {
 		try {
 			ThreadCB thread = MMU.getPTBR().getTask().getCurrentThread();
@@ -110,23 +96,17 @@ public class ThreadCB extends IflThreadCB {
 				thread.getTask().setCurrentThread(null);
 				MMU.setPTBR(null);
 				thread.setStatus(ThreadReady);
-				if (thread.estimatedBurstTime < 150)
-					highPriorityQueue.append(thread);
-				else
-					lowerPriorityQueue.append(thread);
-				thread.lastCpuBurst = (int) (HClock.get() - thread.lastDispatch);
-				thread.estimatedBurstTime = (int) ((0.9 * thread.lastCpuBurst) + (0.1 * thread.estimatedBurstTime));
+				readyQueue.append(thread);
 			}
 		} catch (NullPointerException e) {}
-		if (highPriorityQueue.isEmpty() && lowerPriorityQueue.isEmpty()) {
+		if (readyQueue.isEmpty()) {
 			MMU.setPTBR(null);
 			return FAILURE;
 		}
-		ThreadCB head = (ThreadCB) highPriorityQueue.removeHead();
+		ThreadCB head = (ThreadCB) readyQueue.removeHead();
 		MMU.setPTBR(head.getTask().getPageTable());
 		head.getTask().setCurrentThread(head);
 		head.setStatus(ThreadRunning);
-		lastDispatch = HClock.get();
 		return SUCCESS;
 	}
 
