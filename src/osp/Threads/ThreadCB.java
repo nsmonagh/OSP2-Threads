@@ -2,6 +2,7 @@ package osp.Threads;
 
 import osp.Devices.Device;
 import osp.Hardware.HClock;
+import osp.Hardware.HTimer;
 import osp.IFLModules.Event;
 import osp.IFLModules.IflThreadCB;
 import osp.Memory.MMU;
@@ -13,11 +14,11 @@ public class ThreadCB extends IflThreadCB {
 	static GenericList highPriorityQueue;
 	static GenericList lowerPriorityQueue;
 	
-	static int lastCpuBurst;
-	static int estimatedBurstTime;
+	int lastCpuBurst = -1;
+	int estimatedBurstTime = 150;
 	
-	static long lastDispatch;
-	
+	long lastDispatch = -1;
+
 	public ThreadCB() {
 		super();
 	}
@@ -25,11 +26,6 @@ public class ThreadCB extends IflThreadCB {
 	public static void init() {
 		highPriorityQueue = new GenericList();
 		lowerPriorityQueue = new GenericList();
-		
-		lastCpuBurst = -1;
-		estimatedBurstTime = 150;
-		
-		lastDispatch = -1;
 	}
 
 	static public ThreadCB do_create(TaskCB task) {
@@ -102,7 +98,6 @@ public class ThreadCB extends IflThreadCB {
 		dispatch();
 	}
 
-	@SuppressWarnings("static-access")
 	public static int do_dispatch() {
 		try {
 			ThreadCB thread = MMU.getPTBR().getTask().getCurrentThread();
@@ -110,7 +105,7 @@ public class ThreadCB extends IflThreadCB {
 				thread.getTask().setCurrentThread(null);
 				MMU.setPTBR(null);
 				thread.setStatus(ThreadReady);
-				if (thread.estimatedBurstTime < 150)
+				if (thread.estimatedBurstTime <= 150)
 					highPriorityQueue.append(thread);
 				else
 					lowerPriorityQueue.append(thread);
@@ -118,15 +113,22 @@ public class ThreadCB extends IflThreadCB {
 				thread.estimatedBurstTime = (int) ((0.9 * thread.lastCpuBurst) + (0.1 * thread.estimatedBurstTime));
 			}
 		} catch (NullPointerException e) {}
+		ThreadCB head;
 		if (highPriorityQueue.isEmpty() && lowerPriorityQueue.isEmpty()) {
 			MMU.setPTBR(null);
 			return FAILURE;
 		}
-		ThreadCB head = (ThreadCB) highPriorityQueue.removeHead();
+		else if (!highPriorityQueue.isEmpty()) {
+			head = (ThreadCB) highPriorityQueue.removeHead();
+		}
+		else {
+			head = (ThreadCB) lowerPriorityQueue.removeHead();
+			HTimer.set(150);
+		}
 		MMU.setPTBR(head.getTask().getPageTable());
 		head.getTask().setCurrentThread(head);
 		head.setStatus(ThreadRunning);
-		lastDispatch = HClock.get();
+		head.lastDispatch = HClock.get();
 		return SUCCESS;
 	}
 
