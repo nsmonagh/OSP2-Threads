@@ -9,6 +9,7 @@ import osp.Memory.MMU;
 import osp.Resources.ResourceCB;
 import osp.Tasks.TaskCB;
 import osp.Utilities.GenericList;
+import osp.Utilities.MyOut;
 
 public class ThreadCB extends IflThreadCB {
 	static GenericList highPriorityQueue;
@@ -120,9 +121,23 @@ public class ThreadCB extends IflThreadCB {
 		}
 		else if (!highPriorityQueue.isEmpty()) {
 			head = (ThreadCB) highPriorityQueue.removeHead();
+			while (head.getStatus() == ThreadKill)
+				if (!highPriorityQueue.isEmpty())
+					head = (ThreadCB) highPriorityQueue.removeHead();
+				else {
+					MMU.setPTBR(null);
+					return FAILURE;
+				}
 		}
 		else {
 			head = (ThreadCB) lowerPriorityQueue.removeHead();
+			while (head.getStatus() == ThreadKill)
+				if (!lowerPriorityQueue.isEmpty())
+					head = (ThreadCB) lowerPriorityQueue.removeHead();
+				else {
+					MMU.setPTBR(null);
+					return FAILURE;
+				}
 			HTimer.set(150);
 		}
 		MMU.setPTBR(head.getTask().getPageTable());
