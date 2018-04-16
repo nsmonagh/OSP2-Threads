@@ -9,7 +9,6 @@ import osp.Memory.MMU;
 import osp.Resources.ResourceCB;
 import osp.Tasks.TaskCB;
 import osp.Utilities.GenericList;
-import osp.Utilities.MyOut;
 
 public class ThreadCB extends IflThreadCB {
 	static GenericList highPriorityQueue;
